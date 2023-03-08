@@ -15,14 +15,16 @@ class OlidCnnNet(nn.Module):
         self.conv_1 = nn.Conv2d(1, conv_out, (2, embedding_size))
         self.conv_2 = nn.Conv2d(1, conv_out, (3, embedding_size))
         self.conv_3 = nn.Conv2d(1, conv_out, (4, embedding_size))
+        #self.conv_4 = nn.Conv2d(1, conv_out, (5, embedding_size))
       
         # Max pooling layers definition
         self.pool_1 = nn.MaxPool2d((1, 2))
         self.pool_2 = nn.MaxPool2d((1, 3))
         self.pool_3 = nn.MaxPool2d((1, 4))
+        #self.pool_4 = nn.MaxPool2d((1, 5))
         
         # dropout
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(0.2)
         
         # find fc layer input size
         test = torch.randint(10, (1, seq_len))
@@ -43,12 +45,17 @@ class OlidCnnNet(nn.Module):
         # Convolution layer 2 is applied
         x2 = self.conv_2(x).squeeze(-1)
         x2 = F.relu(x2)
-        x2 = self.pool_1(x2)
+        x2 = self.pool_2(x2)
    
         # Convolution layer 3 is applied
         x3 = self.conv_3(x).squeeze(-1)
         x3 = F.relu(x3)
-        x3 = self.pool_1(x3)
+        x3 = self.pool_3(x3)
+        
+        # Convolution layer 4 is applied
+        # x4 = self.conv_4(x).squeeze(-1)
+        # x4 = F.relu(x4)
+        # x4 = self.pool_4(x4)
       
         # The output of each convolutional layer is concatenated into a unique vector
         union = torch.cat((x1, x2, x3), 2)
