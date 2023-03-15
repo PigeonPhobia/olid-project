@@ -7,7 +7,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 import torch
 import torch.nn.functional as F
 
-from torchtext.vocab import vocab, Vectors
+from torchtext.vocab import vocab, GloVe
 
 from torch.nn.utils.rnn import pad_sequence
 
@@ -136,7 +136,7 @@ def glove_twitter_preprocess(text):
     return text.lower()
 
 
-def get_embedding_from_file(vocabulary, file):
-    pretrained_vectors = Vectors(file)
+def get_embedding_from_torch_text(vocabulary, name, dim):
+    pretrained_vectors = GloVe(name=name, dim=dim)
     pretrained_embedding = pretrained_vectors.get_vecs_by_tokens(vocabulary.get_itos())
     return pretrained_embedding
