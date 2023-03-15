@@ -1,3 +1,4 @@
+import re
 from collections import Counter, OrderedDict
 
 from nltk.tokenize import TweetTokenizer
@@ -6,7 +7,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 import torch
 import torch.nn.functional as F
 
-from torchtext.vocab import vocab
+from torchtext.vocab import vocab, Vectors
 
 from torch.nn.utils.rnn import pad_sequence
 
@@ -67,7 +68,7 @@ def create_fixed_length_batch(sequences, length):
         return F.pad(sequences_padded, (0, length-max_seq_len), mode="constant", value=0)
 
 
-def transform_word_to_vector(documents, num_vocab=10000, num_tokens=30):
+def transform_word_to_vector(documents, num_vocab=10000, padded=True, num_tokens=30):
     token_counter = Counter()
     for text in documents:
         for token in text:
@@ -82,6 +83,60 @@ def transform_word_to_vector(documents, num_vocab=10000, num_tokens=30):
     
     documents_vector = [torch.tensor(vocabulary.lookup_indices(text)) for text in documents]
     
-    documents_padded = create_fixed_length_batch(documents_vector, num_tokens)
+    if padded:
+        documents_vector = create_fixed_length_batch(documents_vector, num_tokens)
     
-    return vocabulary, documents_padded
+    return vocabulary, documents_vector
+
+
+FLAGS = re.MULTILINE | re.DOTALL
+
+def hashtag(text):
+    text = text.group()
+    hashtag_body = text[1:]
+    if hashtag_body.isupper():
+        result = "<hashtag> {} <allcaps>".format(hashtag_body.lower())
+    else:
+        result = " ".join(["<hashtag>"] + re.split(r"(?=[A-Z])", hashtag_body, flags=FLAGS))
+    return result
+
+def allcaps(text):
+    text = text.group()
+    return text.lower() + " <allcaps>"
+
+
+def glove_twitter_preprocess(text):
+    # Different regex parts for smiley faces
+    eyes = r"[8:=;]"
+    nose = r"['`\-]?"
+
+    # function so code less repetitive
+    def re_sub(pattern, repl):
+        return re.sub(pattern, repl, text, flags=FLAGS)
+
+    text = re_sub(r"https?:\/\/\S+\b|www\.(\w+\.)+\S*", "<url>")
+    # for our specific dataset
+    text = re_sub(r"URL", "<url>")
+    text = re_sub(r"/"," / ")
+    text = re_sub(r"@\w+", "<user>")
+    text = re_sub(r"{}{}[)dD]+|[)dD]+{}{}".format(eyes, nose, nose, eyes), "<smile>")
+    text = re_sub(r"{}{}p+".format(eyes, nose), "<lolface>")
+    text = re_sub(r"{}{}\(+|\)+{}{}".format(eyes, nose, nose, eyes), "<sadface>")
+    text = re_sub(r"{}{}[\/|l*]".format(eyes, nose), "<neutralface>")
+    text = re_sub(r"<3","<heart>")
+    text = re_sub(r"[-+]?[.\d]*[\d]+[:,.\d]*", "<number>")
+    text = re_sub(r"#\S+", hashtag)
+    text = re_sub(r"([!?.]){2,}", r"\1 <repeat>")
+    text = re_sub(r"\b(\S*?)(.)\2{2,}\b", r"\1\2 <elong>")
+
+    ## -- I just don't understand why the Ruby script adds <allcaps> to everything so I limited the selection.
+    #text = re_sub(r"([^a-z0-9()<>'`\-]){2,}", allcaps)
+    text = re_sub(r"([A-Z]){2,}", allcaps)
+
+    return text.lower()
+
+
+def get_embedding_from_file(vocabulary, file):
+    pretrained_vectors = Vectors(file)
+    pretrained_embedding = pretrained_vectors.get_vecs_by_tokens(vocabulary.get_itos())
+    return pretrained_embedding
