@@ -89,6 +89,15 @@ def transform_word_to_vector(documents, num_vocab=10000, padded=True, num_tokens
     return vocabulary, documents_vector
 
 
+def get_vector_from_vocabulary(vocabulary, documents, padded=True, num_tokens=30):
+    documents_vector = [torch.tensor(vocabulary.lookup_indices(text)) for text in documents]
+    
+    if padded:
+        documents_vector = create_fixed_length_batch(documents_vector, num_tokens)
+    
+    return documents_vector
+
+
 FLAGS = re.MULTILINE | re.DOTALL
 
 def hashtag(text):
